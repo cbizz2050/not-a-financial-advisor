@@ -1,40 +1,20 @@
-![This is a alt text.](https://imgs.search.brave.com/BG5DEbR07fAgnR10LlmWEuKkS55T-qGefRKem9J4lPg/rs:fit:528:245:1/g:ce/aHR0cHM6Ly9taXJv/Lm1lZGl1bS5jb20v/bWF4LzEwNTYvMSo2/eW9PdFNxTEZ1M0tM/c19fRERZcm9nLnBu/Zw "cool-pic")
+# Pattern Detector
 
+The `PatternDetector` class is a market analysis tool that identifies various chart patterns in stock market data. It is designed to work with the `MarketDataIngestor` class and the `Database` class to retrieve and store market data and detection results.
 
-## Inputs
-#### Stock-recorder Database
+## Design
 
-#### Parameters
-* ticker_symbol
-* pattern_types
+The `PatternDetector` class uses a modular design that allows for easy extension with new pattern detection algorithms. The core functionality of the class revolves around the `Pattern` class, which provides a framework for defining and detecting chart patterns. Each `Pattern` subclass implements its own detection algorithm and overrides the `detect` method.
 
-## Outputs
-#### Pattern detection event entries in stock-recorder DB
+The `PatternDetector` class provides a `detect` method that takes in a `MarketData` object and applies all of its defined patterns to the data. The detected patterns are stored in a dictionary that maps pattern names to a list of detection results.
 
-## General Sequence of Events
+## Usage
 
-1. User specifies pattern_types and ticker_symbol to scan for when starting script
+To use the `PatternDetector` class, first create an instance and then define any patterns that should be used for detection. For example, to detect a double bottom pattern:
 
-2. Loops over input data from stock-recorder DB, scanning for patterns
-
-3. Detects pattern event
-
-4. Reports detection event to stock-recorder db
-
-
-#### Database stucture
-
-    Database: stock-recorder
-    Table: SPY-1H * Used by aggregator
-    Table: SPY-1H-patterns
-    
-#### Pattern Detection record layout:
-    
-    { time, pattern_type, slope/value }
-
-
-## Links
-
-You may be using [Markdown Live Preview](https://markdownlivepreview.com/).
-https://www.barchart.com/my/price-history/historical
-
+```
+detector = PatternDetector()
+detector.add_pattern(DoubleBottomPattern())
+data = MarketDataIngestor.download_data('AAPL', '1y')
+detections = detector.detect(data)
+```
