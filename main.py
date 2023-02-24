@@ -1,34 +1,39 @@
-from database import Database
-from market_data_ingestor import MarketDataIngestor
-from pattern_detector import PatternDetector
+from datetime import datetime, timedelta
+from typing import List
+
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+
+from market_data_ingestor import MarketDataIngestor
+from pattern_detector import Method1Detector
+from database import Database
+from detection_plotter import DetectionEventPlotter
 
 
-# Define the tickers and intervals to monitor
-tickers = ['AAPL', 'MSFT']
-intervals = ['1h', '1d']
+def main(interval_minutes: int, symbols: List[str], plot_window_minutes: int) -> None:
+    # Instantiate a database object
+    database = Database()
 
-# Create the database
-database = Database(host='localhost', user='root', password='password', db_name='market_data_db')
+    # Instantiate a market data ingestor object for each symbol
+    ingestors = [MarketDataIngestor(database, symbol, interval_minutes) for symbol in symbols]
 
-# Create MarketDataIngestor and PatternDetector objects for each ticker and interval
-ingestors = [MarketDataIngestor(database, ticker, interval) for ticker in tickers for interval in intervals]
-detectors = [PatternDetector(database, ingestor, detection_methods=[Method1Detector(), Method2Detector()]) for ingestor in ingestors]
+    # Instantiate one or more pattern detectors
+    detectors = [Method1Detector(database) for _ in range(3)]
 
-# Define the function to be called on each animation frame
-def update(frame):
-    # Query the database for new detection events and plot them
-    for detector in detectors:
-        detection_events = detector.query_database_for_new_detections()
-        if detection_events:
-            for detection_event in detection_events:
-                plt.plot(detection_event['time'], detection_event['confidence'], 'o', label=detection_event['ticker'])
-            plt.legend()
-    plt.show()
+    # Instantiate a detection event plotter
+    plotter = DetectionEventPlotter(database, symbols, plot_window_minutes)
 
-# Set up the animation
-ani = FuncAnimation(plt.gcf(), update, interval=10000)
+    # Run the main loop
+    while True:
+        # Fetch the latest market data for each symbol
+        market_data = [ingestor.fetch_latest_market_data() for ingestor in ingestors]
 
-# Display the plot
-plt.show()
+        # Pass the market data to each pattern detector
+        for detector in detectors:
+            for data in market_data:
+                detector.detect(data)
+
+        # Plot any new detection events
+        plotter.plot_new_events()
+
+        # Sleep for some period of time
+        time.sleep(interval_minutes * 60)

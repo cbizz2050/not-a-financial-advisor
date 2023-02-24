@@ -1,38 +1,22 @@
-import mysql.connector
-
 class Database:
-    def __init__(self, config):
-        self.config = config
-        self.connection = None
+    def __init__(self, db_file):
+        self.db_file = db_file
+        self.conn = sqlite3.connect(self.db_file)
+        self.cursor = self.conn.cursor()
 
-    def connect(self):
-        # Connect to the database using the configuration parameters
-        self.connection = mysql.connector.connect(**self.config)
+    def create_table(self, table_name, columns):
+        column_definitions = ', '.join([f"{column} TEXT" for column in columns])
+        self.cursor.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({column_definitions})")
 
-    def execute(self, query, values=None, commit=True):
-        # Execute a SQL query on the database
+    def insert_row(self, table_name, row):
+        placeholders = ', '.join(['?' for _ in row])
+        self.cursor.execute(f"INSERT INTO {table_name} VALUES ({placeholders})", row)
+        self.conn.commit()
 
-        # Connect to the database if not already connected
-        if self.connection is None:
-            self.connect()
+    def query(self, query):
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
 
-        # Create a cursor object for executing the query
-        cursor = self.connection.cursor()
-
-        # Execute the query with the provided values
-        if values is None:
-            cursor.execute(query)
-        else:
-            cursor.execute(query, values)
-
-        # Commit the transaction if specified
-        if commit:
-            self.connection.commit()
-
-        # Return the results of the query
-        results = cursor.fetchall()
-
-        # Close the cursor
-        cursor.close()
-
-        return results
+    def mark_detection_event_processed(self, detection_event_id):
+        self.cursor.execute(f"UPDATE detection_events SET processed = 1 WHERE id = ?", (detection_event_id,))
+        self.conn.commit()

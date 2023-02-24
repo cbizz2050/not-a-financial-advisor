@@ -1,58 +1,59 @@
-class PatternDetection:
-    def __init__(self, config):
-        self.config = config
-        self.database = Database(config['database'])
-        self.ticker = config['ticker']
-        self.interval = config['interval']
-        self.detection_methods = self.create_detection_methods(config['detection_methods'])
+import sqlite3
 
-    def create_detection_methods(self, detection_methods_config):
-        # Create detection methods based on the provided configuration
-        detection_methods = []
-        for method_config in detection_methods_config:
-            method_class = globals()[method_config['class']]
-            method_params = method_config.get('params', {})
-            detection_methods.append(method_class(method_params))
-        return detection_methods
+class PatternDetector:
+    def __init__(self, db_name, market_data_ingestor, detection_methods):
+        self.db_name = db_name
+        self.market_data_ingestor = market_data_ingestor
+        self.detection_methods = detection_methods
 
-    def detect_patterns(self, market_data):
-        # Detect patterns in the market data using the specified detection methods
-        detection_events = []
-        for data_point in market_data:
-            detection_event = {'ticker': self.ticker, 'interval': self.interval, 'time': data_point['time']}
-            for detection_method in self.detection_methods:
-                confidence_rating = detection_method.detect_pattern(data_point)
-                detection_event[detection_method.__class__.__name__] = confidence_rating
-            detection_events.append(detection_event)
+        # Connect to the SQLite database
+        self.conn = sqlite3.connect(self.db_name)
+        self.c = self.conn.cursor()
 
-        return detection_events
+        # Create the table for this ticker and interval if it doesn't already exist
+        table_name = f"{self.market_data_ingestor.ticker}_{self.market_data_ingestor.interval}_detection_events"
+        self.c.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id INTEGER PRIMARY KEY, ticker TEXT, interval TEXT, time INTEGER, confidence REAL)")
 
-    def write_detection_to_database(self, table, detection_event, confidence_rating):
-        # Write the detection to the options table with the calculated confidence rating
+        # Get the last detection time from the database
+        self.last_detection_time = self.get_last_detection_time()
 
-        # Prepare the values to be inserted into the database
-        values = (
-            detection_event['timestamp'],
-            detection_event['interval'],
-            detection_event['open'],
-            detection_event['high'],
-            detection_event['low'],
-            detection_event['close'],
-            detection_event['volume'],
-            confidence_rating
-        )
+    def query_database_for_new_detections(self, limit=None, rate_limit_seconds=5):
+        table_name = f"{self.ticker}_{self.interval}_detection_events"
+        columns = ['id', 'time', 'ticker', 'interval',
+                   'detection_method', 'confidence', 'message', 'processed']
+        
+        query = f"SELECT {', '.join(columns)} FROM {table_name} WHERE processed = 0 ORDER BY time ASC"
+        if limit:
+            query += f" LIMIT {limit}"
 
-        # Insert the values into the database
-        # The query string uses f-strings to dynamically create the table name, 
-        # column names, and parameter placeholders. 
-        # The get_detection_method_names() method is used to get the names of the detection methods, 
-        # which are then used to construct the column names in the INSERT INTO query.
+        detections = self.database.query(query)
 
-        '''
-        The parameter list for the query is constructed using a combination of a list containing the ticker, interval, and time values
-        for the detection event, and a list of confidence ratings for each detection method. 
-        The list of confidence ratings is constructed using a list comprehension to extract the confidence rating for each 
-        detection method in the order they appear in the self.detection_methods list.
-        '''
-        query = f"INSERT INTO {table} (timestamp, interval, open, high, low, close, volume, confidence_rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-        self.database.execute(query, values)
+        if detections:
+            for detection in detections:
+                # Process the detection event
+                self.process_detection_event(detection)
+
+                # Rate limit to avoid overwhelming the database
+                time.sleep(rate_limit_seconds)
+        else:
+            print(f"No new detection events found for {self.ticker} ({self.interval})")
+
+    def write_detection_events_to_database(self, detection_events):
+        # Write the detection events to the database
+        table_name = f"{self.market_data_ingestor.ticker}_{self.market_data_ingestor.interval}_detection_events"
+        for detection_event in detection_events:
+            self.c.execute(f"INSERT INTO {table_name} (ticker, interval, time, confidence) VALUES (?, ?, ?, ?)", (detection_event[1], detection_event[2], detection_event[3], detection_event[4]))
+
+        # Commit changes to the database
+        self.conn.commit()
+
+    def get_last_detection_time(self):
+        # Get the last detection time from the database
+        table_name = f"{self.market_data_ingestor.ticker}_{self.market_data_ingestor.interval}_detection_events"
+        self.c.execute(f"SELECT MAX(time) FROM {table_name}")
+        last_detection_time = self.c.fetchone()[0]
+
+        if last_detection_time is not None:
+            return last_detection_time
+        else:
+            return 0
