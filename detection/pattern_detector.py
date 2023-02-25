@@ -1,24 +1,14 @@
-import yfinance as yf
-from .pattern import Pattern
-from .database import Database
-
-
 class PatternDetector:
-    def __init__(self, symbol, start_date, end_date):
-        self.symbol = symbol
-        self.start_date = start_date
-        self.end_date = end_date
-        self.data = yf.download(symbol, start_date, end_date)
-        self.patterns = []
-        self.db = Database()
+    def __init__(self):
+        self.detectors = []
 
-    def detect_patterns(self):
-        self.patterns = []
-        for name, pattern in Pattern.get_all_patterns().items():
-            result = pattern.detect(self.data)
-            if result is not None:
-                self.patterns.append(result)
-                self.db.write_detection_event_to_database(result, name)
+    def add_detector(self, detector):
+        self.detectors.append(detector)
 
-    def get_patterns(self):
-        return self.patterns
+    def detect_patterns(self, intraday_data, historical_data):
+        detected_patterns = []
+        for detector in self.detectors:
+            detector.detect(intraday_data, historical_data)
+            if detector.has_unstored_detections():
+                detected_patterns += detector.get_unstored_detections()
+        return detected_patterns
