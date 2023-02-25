@@ -16,6 +16,15 @@ def main(interval, log_file):
     detector = PatternDetector()
     storage = PatternStorage()
 
+    api_key = 'insertapikey'
+    md = MarketData(api_key)
+
+    # Retrieve and preprocess market data for a symbol and interval
+    symbol = 'AAPL'
+    interval = '5min'
+    df = md.retrieve_data(symbol, interval)
+    md.preprocess_data()
+
     while True:
         try:
             # Ingest market data
@@ -26,6 +35,9 @@ def main(interval, log_file):
 
             # Store patterns
             storage.store_pattern(detected_patterns)
+
+            # Plot the processed data
+            md.plot_processed_data()
         except Exception as e:
             logging.error(f"Error occurred: {e}")
             sys.exit(1)
