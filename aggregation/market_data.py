@@ -82,10 +82,53 @@ class MarketData:
         ax2.legend(loc='upper right')
         plt.show()
 
-class IntradayData(MarketData):
+class IntradayData:
     def __init__(self, api_key):
-        super().__init__(api_key)
-        self.interval = '5min'
+        self.api_key = api_key
+        self.base_url = 'https://www.alphavantage.co/query'
+
+        self.data = None
+        self.index = 0
+
+    def retrieve_data(self, symbol):
+        # Retrieve intraday data from Alpha Vantage
+        payload = {
+            'function': 'TIME_SERIES_INTRADAY',
+            'symbol': symbol,
+            'interval': '5min',
+            'apikey': self.api_key
+        }
+
+        response = requests.get(self.base_url, params=payload)
+        data = response.json()
+
+        # Convert data to DataFrame
+        time_series = data['Time Series (5min)']
+        df = pd.DataFrame.from_dict(time_series, orient='index')
+        df.columns = ['open', 'high', 'low', 'close', 'volume']
+        df.index = pd.to_datetime(df.index)
+        df = df.astype(float)
+
+        self.data = df
+        self.index = 0
+
+        return df
+
+    def preprocess_data(self):
+        # Perform any necessary data preprocessing
+        pass
+
+    def has_next(self):
+        return self.index < len(self.data) - 1
+
+    def next(self):
+        if not self.has_next():
+            raise StopIteration
+
+        row = self.data.iloc[self.index]
+        self.index += 1
+
+        return row
 
 class HistoricalData(MarketData):
     def __init__(self, api_key):
