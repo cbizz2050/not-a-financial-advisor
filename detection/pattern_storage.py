@@ -13,19 +13,24 @@
 import sqlite3
 
 class PatternStorage:
-    def __init__(self, db_name):
-        self.db_name = db_name
-        self.conn = sqlite3.connect(db_name)
-        self.create_table()
+    def __init__(self, intraday_db_name='intraday_patterns.db', historical_db_name='historical_patterns.db'):
+        self.intraday_db_name = intraday_db_name
+        self.historical_db_name = historical_db_name
 
-    def create_table(self):
-        cursor = self.conn.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS patterns 
-                          (pattern_type text, start_date text, end_date text, symbol text, magnitude real)''')
-        self.conn.commit()
+        self.intraday_conn = sqlite3.connect(self.intraday_db_name)
+        self.intraday_cursor = self.intraday_conn.cursor()
 
-    def store_pattern(self, pattern):
-        cursor = self.conn.cursor()
-        cursor.execute("INSERT INTO patterns VALUES (?, ?, ?, ?, ?)",
-                       (pattern.pattern_type, pattern.start_date, pattern.end_date, pattern.symbol, pattern.magnitude))
-        self.conn.commit()
+        self.historical_conn = sqlite3.connect(self.historical_db_name)
+        self.historical_cursor = self.historical_conn.cursor()
+
+    def store_intraday_pattern(self, pattern):
+        # insert the pattern into the intraday database
+        self.intraday_cursor.execute("INSERT INTO patterns (name, start_date, end_date, pattern_type, confidence) VALUES (?, ?, ?, ?, ?)",
+            (pattern.name, pattern.start_date, pattern.end_date, pattern.pattern_type, pattern.confidence))
+        self.intraday_conn.commit()
+
+    def store_historical_pattern(self, pattern):
+        # insert the pattern into the historical database
+        self.historical_cursor.execute("INSERT INTO patterns (name, start_date, end_date, pattern_type, confidence) VALUES (?, ?, ?, ?, ?)",
+            (pattern.name, pattern.start_date, pattern.end_date, pattern.pattern_type, pattern.confidence))
+        self.historical_conn.commit()
