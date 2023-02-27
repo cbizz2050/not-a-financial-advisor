@@ -1,0 +1,16 @@
+should have way of inputting standard time interval i.e. ! minute time '1m' and having a way to interface with other api input for 1 minute interval.
+
+
+thinking alpca is the move for data (intrday and histrocail)
+-> can request histricla w/ different time frames 
+-> should be able to easly scale to crypto from stocks here also.
+-> may be easier to scale data gatherting for traing with different time frames a little easier
+
+Thinking that the web socket may be a little less data intensive(<- somehting like that) (Doing the intrday reqest gets like the day vs just getting one minute)
+
+ 
+look into library that can easily go through different means of measuring time.
+-> something that can go from timestamp to datetime object to string data etc...
+
+
+Kinda thinking we can merge intraday and historcial
